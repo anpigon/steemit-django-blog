@@ -3,5 +3,5 @@ from . import views
 
 urlpatterns = [
     re_path('^$', views.post_list, name='post_list'),
-    re_path(r'^@(?P<author>[\w-]+)/(?P<permlink>[\w-]+)/$', views.post_detail, name='post_detail')
+    re_path('^@(?P<author>[\._\w-]+)/(?P<permlink>[\._\w-]+)/$', views.post_detail, name='post_detail')
 ]

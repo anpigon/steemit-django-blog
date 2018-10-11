@@ -3,6 +3,7 @@ from datetime import datetime
 import requests
 import json
 import markdown
+import re
 
 md = markdown.Markdown(['markdown.extensions.extra', 'markdown.extensions.codehilite'])
 
@@ -17,13 +18,6 @@ def post_list(request, limit=20):
 
     start_entry_id = int(request.GET.get('next', '0'))
 
-    # 스팀잇에서 게시글 가져오기
-    # data = '''{
-    #     "jsonrpc": "2.0",
-    #     "method": "tags_api.get_discussions_by_author_before_date",
-    #     "params": {"author":"%s","start_permlink":"%s","before_date":"1970-01-01T00:00:00","limit":%i},
-    #     "id": 1
-    # }''' % (USERNAME, start_permlink, limit + 1) # limit
     data = '''{
         "jsonrpc": "2.0",
         "method": "follow_api.get_blog",
@@ -35,20 +29,22 @@ def post_list(request, limit=20):
     posts = [] # 게시글 목록
     if response.status_code == 200: # 응답이 성공이라면
         data = json.loads(response.text) # JSON 파싱
-        # discussions = data['result']['discussions']
 
         blogs = data['result']['blog']
         for blog in blogs: # 리스트에서 필요한 데이터만 가져오기
             entry_id = blog['entry_id']
             blog = blog['comment']
-            html = md.convert(blog['body']) # 마크다운을 HTML로 변환
+            # replaced = re.sub(r'^https?://([a-z0-9-]+\.)+[a-z0-9]{2,4}.*$', '', blog['body'])
+            # ^(https?):\/\/([^:\/\s]+)(:([^\/]*))?((\/[^\s/\/]+)*)?\/([^#\s\?]*)(\?([^#\s]*))?(#(\w*))?$
+            replaced = re.sub(r'(^https?://([a-zA-Z0-9][a-zA-Z0-9_-]+([.][a-zA-Z0-9][a-zA-Z0-9_-]+){1,2}(/[a-zA-Z0-9][a-zA-Z0-9_-]*)+)[.](png|PNG|jpg|JPG|jpeg|JPEG|bmp|BMP|gif|GIF))', r'<img src="\1">', blog['body'])
+            html = md.convert(replaced) # 마크다운을 HTML로 변환
             post = {
                 'title': blog['title'],
                 'author': blog['author'],
                 'permlink': blog['permlink'],
                 'created': parse_time(blog['created']),
                 'body': html[:200], # 길이 200으로 자르기
-            }
+                }
             posts.append(post)
 
     if len(posts) < limit:
@@ -72,7 +68,8 @@ def post_detail(request, author='', permlink=''):
         data = json.loads(response.text) # JSON 파싱
         post = data['result']
         # post['body'] = markdown.markdown(post['body'], ['markdown.extensions.extra'])
-        post['body'] = md.convert(post['body'])
+        replaced = re.sub(r'(^https?://([a-zA-Z0-9][a-zA-Z0-9_-]+([.][a-zA-Z0-9][a-zA-Z0-9_-]+){1,2}(/[a-zA-Z0-9][a-zA-Z0-9_-]*)+)[.](png|PNG|jpg|JPG|jpeg|JPEG|bmp|BMP|gif|GIF))', r'<img src="\1">', post['body'])
+        post['body'] = md.convert(replaced)
         post['created'] = parse_time(post['created'])
 
     return render(request, 'blog/post_detail.html', { 'post': post })
